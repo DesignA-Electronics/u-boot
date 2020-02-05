@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: setup tools
-      run: apt install gcc-arm-linux-gnueabihf dtc
+      run: sudo apt-get install gcc-arm-linux-gnueabihf dtc
     - name: config
       run: make snappermx6_defconfig CROSS_COMPILE=arm-linux-gnueabihf-
     - name: build
