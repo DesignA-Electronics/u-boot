@@ -101,6 +101,18 @@ int gpio_get_value(unsigned gpio);
  */
 int gpio_set_value(unsigned gpio, int value);
 
+/**
+ * spl_gpio_direction_output() - Early SPL access to GPIOs
+ *
+ * This calls directly into a single GPIO driver to bypass driver model. It can
+ * be used before driver model is active. It mimics the function of
+ * gpio_direction_output().
+ *
+ * @gpio: Driver-specific GPIO number to change
+ * @value: Value to set to (0 or 1)
+ */
+int spl_gpio_direction_output(unsigned gpio, int value);
+
 /* State of a GPIO, as reported by get_function() */
 enum gpio_func_t {
 	GPIOF_INPUT = 0,
