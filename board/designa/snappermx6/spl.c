@@ -243,7 +243,7 @@ void board_debug_uart_init(void)
 	set_iomux_uart_spl();
 
 	/* Turn on the RS232 transceiver */
-	gpio_direction_output(IMX_GPIO_NR(1, 9), 1);
+	spl_gpio_direction_output(IMX_GPIO_NR(1, 9), 1);
 }
 
 void board_init_f(ulong dummy)
