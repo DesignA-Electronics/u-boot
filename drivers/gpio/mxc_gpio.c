@@ -30,7 +30,7 @@ struct mxc_bank_info {
 	struct gpio_regs *regs;
 };
 
-#if !CONFIG_IS_ENABLED(DM_GPIO)
+#if !CONFIG_IS_ENABLED(DM_GPIO) || CONFIG_IS_ENABLED(GPIO_SIMPLE)
 #define GPIO_TO_PORT(n)		((n) / 32)
 
 /* GPIO port description */
@@ -91,7 +91,7 @@ static int mxc_gpio_direction(unsigned int gpio,
 	return 0;
 }
 
-int gpio_set_value(unsigned gpio, int value)
+int gpio_set_value_(unsigned gpio, int value)
 {
 	unsigned int port = GPIO_TO_PORT(gpio);
 	struct gpio_regs *regs;
@@ -112,6 +112,24 @@ int gpio_set_value(unsigned gpio, int value)
 	writel(l, &regs->gpio_dr);
 
 	return 0;
+}
+
+int gpio_direction_output_(unsigned gpio, int value)
+{
+	int ret = gpio_set_value_(gpio, value);
+
+	if (ret < 0)
+		return ret;
+
+	return mxc_gpio_direction(gpio, MXC_GPIO_DIRECTION_OUT);
+}
+
+#endif /* !DM_GPIO || GPIO_SIMPLE */
+
+#if !CONFIG_IS_ENABLED(DM_GPIO)
+int gpio_set_value(unsigned gpio, int value)
+{
+	return gpio_set_value_(gpio, value);
 }
 
 int gpio_get_value(unsigned gpio)
@@ -152,14 +170,9 @@ int gpio_direction_input(unsigned gpio)
 
 int gpio_direction_output(unsigned gpio, int value)
 {
-	int ret = gpio_set_value(gpio, value);
-
-	if (ret < 0)
-		return ret;
-
-	return mxc_gpio_direction(gpio, MXC_GPIO_DIRECTION_OUT);
+	return gpio_direction_output_(gpio, value);
 }
-#endif
+#endif /* !DM_GPIO */
 
 #if CONFIG_IS_ENABLED(DM_GPIO)
 #include <fdtdec.h>
@@ -262,6 +275,13 @@ static int mxc_gpio_get_function(struct udevice *dev, unsigned offset)
 	else
 		return GPIOF_INPUT;
 }
+
+#if CONFIG_IS_ENABLED(GPIO_SIMPLE)
+int spl_gpio_direction_output(unsigned gpio, int value)
+{
+	return gpio_direction_output_(gpio, value);
+}
+#endif
 
 static const struct dm_gpio_ops gpio_mxc_ops = {
 	.direction_input	= mxc_gpio_direction_input,
