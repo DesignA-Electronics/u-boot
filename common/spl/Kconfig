@@ -498,6 +498,18 @@ config SPL_DM_GPIO
 	help
 	  Enable support for Driver Model based GPIO drivers in SPL.
 
+config SPL_GPIO_SIMPLE
+	bool "Support a simple GPIO interface for SPL"
+	depends on SPL_DM_GPIO
+	help
+	  In some cases it is desirable to directly adjust a GPIO without going
+	  through the driver model layer. Examples include setting up a mux to
+	  make the debug UART work, before driver model is available.
+
+	  Note that this only allows access to a single GPIO driver and that
+	  driver must be the only one in SPL. Also the driver may implement
+	  only part of the GPIO interface (just enough to handle its clients).
+
 config SPL_DRIVERS_MISC_SUPPORT
 	bool "Support misc drivers"
 	help
