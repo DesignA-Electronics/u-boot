@@ -107,19 +107,19 @@ static const struct mx6_ddr3_cfg mt41k128m16jt_125 = {
 	.trasmin = 3500,
 };
 
-iomux_v3_cfg_t const uart_console_pads[] = {
+static iomux_v3_cfg_t const uart_console_pads[] = {
 	/* UART5 */
 	MX6_PAD_CSI0_DAT14__UART5_TX_DATA | MUX_PAD_CTRL(UART_PAD_CTRL),
 	MX6_PAD_CSI0_DAT15__UART5_RX_DATA | MUX_PAD_CTRL(UART_PAD_CTRL),
 };
 
-void set_iomux_uart_spl(void)
+static void set_iomux_uart_spl(void)
 {
 	SETUP_IOMUX_PADS(uart_console_pads);
 }
 
 #ifdef CONFIG_MXC_SPI
-iomux_v3_cfg_t const ecspi_pads[] = {
+static iomux_v3_cfg_t const ecspi_pads[] = {
 	MX6_PAD_EIM_EB2__GPIO2_IO30 | MUX_PAD_CTRL(SPI_PAD_CTRL),
 	MX6_PAD_EIM_D18__ECSPI1_MOSI | MUX_PAD_CTRL(SPI_PAD_CTRL),
 	MX6_PAD_EIM_D17__ECSPI1_MISO | MUX_PAD_CTRL(SPI_PAD_CTRL),
@@ -134,13 +134,13 @@ int board_spi_cs_gpio(unsigned int bus, unsigned int cs)
 	return IMX_GPIO_NR(2, 30);
 }
 
-void snappermx6_set_iomux_ecspi_spl(void)
+static void snappermx6_set_iomux_ecspi_spl(void)
 {
 	SETUP_IOMUX_PADS(ecspi_pads);
 }
 
 #else
-void snappermx6_set_iomux_ecspi_spl(void) {}
+static void snappermx6_set_iomux_ecspi_spl(void) {}
 #endif
 
 static void ccgr_init(void)
