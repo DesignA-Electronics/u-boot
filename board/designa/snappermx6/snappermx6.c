@@ -83,55 +83,25 @@ static void setup_spi(void)
 
 static void setup_iomux_enet(void)
 {
+	int reset_gpio = IMX_GPIO_NR(4, 8);
 	SETUP_IOMUX_PADS(enet_pads);
 
 	/* Reset the 88e6061 PHY on the Salmon carrier board */
-	gpio_direction_output(IMX_GPIO_NR(4, 8), 0);
+	gpio_request(reset_gpio, "PHY_RESET");
+
+	gpio_direction_output(reset_gpio, 0);
 	udelay(500);
-	gpio_set_value(IMX_GPIO_NR(4, 8), 1);
+	gpio_set_value(reset_gpio, 1);
 }
 #endif
 
 static void setup_iomux_uart(void)
 {
 	imx_iomux_v3_setup_multiple_pads(uart5_pads, ARRAY_SIZE(uart5_pads));
+	gpio_request(IMX_GPIO_NR(1, 9), "rs232_enable");
 	gpio_direction_output(IMX_GPIO_NR(1, 9), 1);
 }
 
-#if 0
-#define MII_MMD_ACCESS_CTRL_REG		0xd
-#define MII_MMD_ACCESS_ADDR_DATA_REG	0xe
-#define MII_DBG_PORT_REG		0x1d
-#define MII_DBG_PORT2_REG		0x1e
-
-int fecmxc_mii_postcall(int phy)
-{
-	unsigned short val;
-
-	/*
-	 * Due to the i.MX6Q Armadillo2 board HW design,there is
-	 * no 125Mhz clock input from SOC. In order to use RGMII,
-	 * We need enable AR8031 ouput a 125MHz clk from CLK_25M
-	 */
-	miiphy_write("FEC", phy, MII_MMD_ACCESS_CTRL_REG, 0x7);
-	miiphy_write("FEC", phy, MII_MMD_ACCESS_ADDR_DATA_REG, 0x8016);
-	miiphy_write("FEC", phy, MII_MMD_ACCESS_CTRL_REG, 0x4007);
-	miiphy_read("FEC", phy, MII_MMD_ACCESS_ADDR_DATA_REG, &val);
-	val &= 0xffe3;
-	val |= 0x18;
-	miiphy_write("FEC", phy, MII_MMD_ACCESS_ADDR_DATA_REG, val);
-
-	/* For the RGMII phy, we need enable tx clock delay */
-	miiphy_write("FEC", phy, MII_DBG_PORT_REG, 0x5);
-	miiphy_read("FEC", phy, MII_DBG_PORT2_REG, &val);
-	val |= 0x0100;
-	miiphy_write("FEC", phy, MII_DBG_PORT2_REG, val);
-
-	miiphy_write("FEC", phy, MII_BMCR, 0xa100);
-
-	return 0;
-}
-#endif
 int board_eth_init(bd_t *bis)
 {
 	setup_iomux_enet();
