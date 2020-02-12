@@ -3,8 +3,10 @@
 #include <command.h>
 #include <malloc.h>
 #include <spi_flash.h>
-#include <env.h>
 #include <errno.h>
+#include <search.h>
+#include <env_internal.h>
+#include <cpu.h>
 
 #define ACTIVESET_FLASH_LEN (0x10000)
 
@@ -52,15 +54,12 @@ static void print_set_env(void)
 static int load_set_env(int idx)
 {
 	char *buf;
-	env_t *env;
-	int len = ACTIVESET_FLASH_LEN - offsetof(env_t, data);
 	int ret;
 
 	if (init_flash() < 0)
 		return -1;
 
 	buf = (char *)malloc(ACTIVESET_FLASH_LEN);
-	env = (env_t *)buf;
 
 	ret = spi_flash_read(activeset_flash, activeset_env_addrs[idx], ACTIVESET_FLASH_LEN, buf);
 	if (ret < 0) {
@@ -69,20 +68,11 @@ static int load_set_env(int idx)
 		goto out;
 	}
 
-	if (crc32(0, env->data, len) != env->crc) {
-		printf("error: bad set environment CRC\n");
-		ret = -1;
-		goto out;
-	}
-
-	if (himport_r(&activeset_htab, (char *)env->data, len, '\0', 0, 0, NULL) == 0) {
+	if (env_import(buf, 1) != 0) {
 		printf("error: set environment import failed\n");
 		ret = -1;
 		goto out;
 	}
-
-	// tmp
-	//print_set_env();
 
 	ret = 0;
  out:
@@ -92,53 +82,34 @@ static int load_set_env(int idx)
 
 static int save_set_env(int idx)
 {
-	char *buf;
-	env_t *env;
-	char *res;
-	int len = ACTIVESET_FLASH_LEN - offsetof(env_t, data);
+	env_t	env_new;
 	int ret;
 
 	if (init_flash() < 0)
 		return -1;
 
-	buf = (char *)malloc(ACTIVESET_FLASH_LEN);
-	env = (env_t *)buf;
-
-	res = (char *)env->data;
-	len = hexport_r(&activeset_htab, '\0', 0, &res, len, 0, NULL);
-	if (len < 0) {
-		printf("error: set environment export failed\n");
-		ret = -1;
-		goto out;
-	}
-
-	//print_set_env();
-
-	env->crc = crc32(0, env->data, len);
+	ret = env_export(&env_new);
+	if (ret < 0)
+		return ret;
 
 	ret = spi_flash_erase(activeset_flash, activeset_env_addrs[idx], ACTIVESET_FLASH_LEN);
 	if (ret < 0) {
 		printf("error: set environment export spi flash erase failed\n");
-		ret = -1;
-		goto out;
+		return ret;
 	}
 
-	ret = spi_flash_write(activeset_flash, activeset_env_addrs[idx], ACTIVESET_FLASH_LEN, buf);
+	ret = spi_flash_write(activeset_flash, activeset_env_addrs[idx], ACTIVESET_FLASH_LEN, (uchar *)&env_new);
 	if (ret < 0) {
 		printf("error: set environment export spi flash write failed\n");
-		ret = -1;
-		goto out;
+		return ret;
 	}
 
-	ret = 0;
- out:
-	free(buf);
-	return ret;
+	return 0;
 }
 
 static int get_activeset_idx(void)
 {
-	ENTRY e, *ep;
+	struct env_entry e = {}, *ep;
 	int ret;
 	int i;
 
@@ -150,7 +121,7 @@ static int get_activeset_idx(void)
 
 		e.key = "activeset";
 		e.data = NULL;
-		hsearch_r(e, FIND, &ep, &activeset_htab, 0);
+		hsearch_r(e, ENV_FIND, &ep, &activeset_htab, 0);
 		if (ep == NULL)
 			return -1;
 
@@ -182,7 +153,7 @@ static int print_activeset(void)
 static int update_set_active_state(int idx, int active)
 {
 	char value[2];
-	ENTRY e, *ep;
+	struct env_entry e = {}, *ep;
 	int ret;
 
 	ret = load_set_env(idx);
@@ -194,7 +165,7 @@ static int update_set_active_state(int idx, int active)
 
 	e.key	= "activeset";
 	e.data	= value;
-	hsearch_r(e, ENTER, &ep, &activeset_htab, 0);
+	hsearch_r(e, ENV_ENTER, &ep, &activeset_htab, 0);
 	if (!ep)
 		return -1;
 
@@ -220,26 +191,25 @@ static int set_activeset(int idx)
 	ret = update_set_active_state(idx, 1);
 	if (ret < 0)
 		return CMD_RET_FAILURE;
+
 	for (i = 0; i < ARRAY_SIZE(activeset_env_addrs); i++) {
 		if (i == idx)
 			continue;
-			ret = update_set_active_state(i, 0);
-			if (ret < 0)
-				return CMD_RET_FAILURE;
+		ret = update_set_active_state(i, 0);
+		if (ret < 0)
+			return CMD_RET_FAILURE;
 	}
 
 
 	return CMD_RET_SUCCESS;
 }
 
-extern u32 get_cached_reset_cause(void);
-
 static int increment_activeset_after_watchdog_reset(void)
 {
 	int idx;
 	int ret;
 
-	if (get_cached_reset_cause() != 0x00010) {
+	if (get_imx_reset_cause() != 0x00010) {
 		//printf("CPU reset cause was not watchdog\n");
 		return CMD_RET_SUCCESS;
 	}
