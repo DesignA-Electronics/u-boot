@@ -3,7 +3,7 @@
 #include <command.h>
 #include <malloc.h>
 #include <spi_flash.h>
-#include <environment.h>
+#include <env.h>
 #include <errno.h>
 
 #define ACTIVESET_FLASH_LEN (0x10000)

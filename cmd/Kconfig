@@ -465,6 +465,11 @@ endmenu
 
 menu "Environment commands"
 
+config CMD_ACTIVESET
+	bool "manipulate active image set"
+	help
+	  Update which boot image to use
+
 config CMD_ASKENV
 	bool "ask for env variable"
 	help
