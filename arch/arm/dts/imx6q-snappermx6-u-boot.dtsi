@@ -21,6 +21,14 @@
 	u-boot,dm-pre-reloc;
 };
 
+&ecspi1 {
+	u-boot,dm-pre-reloc;
+};
+
+&spba_bus {
+	u-boot,dm-pre-reloc;
+};
+
 &uart5 {
 	u-boot,dm-pre-reloc;
 };
@@ -28,9 +36,11 @@
 &gpio3 {
 	u-boot,dm-pre-reloc;
 };
+
 &gpio1 {
 	u-boot,dm-pre-reloc;
 };
+
 &gpio2 {
 	u-boot,dm-pre-reloc;
 };
