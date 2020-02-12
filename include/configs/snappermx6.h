@@ -11,9 +11,6 @@
 #include "mx6_common.h"
 #include "imx6_spl.h"
 
-/* Serial */
-#define CONFIG_MXC_UART_BASE	       UART5_BASE
-
 /* Size of malloc() pool */
 #define CONFIG_SYS_MALLOC_LEN		(8 * SZ_1M)
 
