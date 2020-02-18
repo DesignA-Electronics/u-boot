@@ -42,7 +42,7 @@
 	"initrd_addr=0x13000000\0" \
 	"boot_fdt=try\0" \
 	"ip_dyn=yes\0" \
-	"console=ttymx4\0" \
+	"console=ttymxc4\0" \
 	"fdt_high=0xffffffff\0"	  \
 	"initrd_high=0xffffffff\0" \
 	"nfsroot=/export/root\0" \
