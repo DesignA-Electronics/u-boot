@@ -1426,10 +1426,17 @@ endif
 u-boot-with-spl.imx u-boot-with-nand-spl.imx: SPL u-boot.bin FORCE
 	$(Q)$(MAKE) $(build)=arch/arm/mach-imx $@
 
+# Pack two U-Boot images into an 832k region
 boot.img: u-boot-with-spl.imx
+	$(Q)$(call size_check,u-boot.uim,327680) # 5*64k
+	$(Q)$(call size_check,SPL,64512) # 64k - 1k
 	$(Q)echo "  COMBINE $@"
 	$(Q)dd if=/dev/zero of=$@ bs=1k count=832 status=none
-	$(Q)dd if=u-boot-with-spl.imx of=$@ bs=1k seek=1 conv=notrunc status=none
+	$(Q)dd if=SPL of=$@ bs=1k seek=1 conv=notrunc status=none
+	$(Q)dd if=u-boot.uim of=$@ bs=64k seek=2 conv=notrunc status=none
+	$(Q)dd if=u-boot.uim of=$@ bs=64k seek=7 conv=notrunc status=none
+	$(Q)$(call size_check,$@,851968) # 832k
+
 
 MKIMAGEFLAGS_u-boot.ubl = -n $(UBL_CONFIG) -T ublimage -e $(CONFIG_SYS_TEXT_BASE)
 

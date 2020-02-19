@@ -25,6 +25,8 @@
 #include <netdev.h>
 #include <bootcount.h>
 #include <watchdog.h>
+#include <spi_flash.h>
+#include <u-boot/crc.h>
 #include "common.h"
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -288,6 +290,64 @@ void board_init_f(ulong dummy)
 	/* load/boot image from boot device */
 	board_init_r(NULL, 0);
 }
+
+
+#ifdef CONFIG_SPL_SPI_LOAD
+/**
+ * Search SPI flash looking for a valid U-Boot image, and then return
+ * it's offset.
+ * We know we only program the images at 64k offsets, so just check
+ * every 64k
+ * TODO: This currently loads from SPI twice - once to check that the image is ok,
+ * and a second time to actually boot it. We should optimise this down.
+ */
+
+unsigned long spl_spi_get_uboot_offs(struct spi_flash *flash)
+{
+	struct image_header *header = spl_get_load_buffer(-sizeof(*header), sizeof(*header));
+
+	/* Scan through at 64k offsets looking for a u-boot header */
+	for (uint32_t offset = CONFIG_SYS_SPI_U_BOOT_OFFS; offset < 832 * 1024; offset = (offset + 64 * 1024) & ~(64 * 1024 - 1)) {
+		printf("Checking for SPL at 0x%x\n", offset);
+		//struct spl_load_info load;
+		int err;
+		struct spl_image_info spl_image;
+
+		/* Load u-boot, mkimage header is 64 bytes. */
+		err = spi_flash_read(flash, offset, sizeof(*header),
+				     (void *)header);
+		if (err < 0)
+			continue;
+
+		err = spl_parse_image_header(&spl_image, header);
+		if (err < 0) {
+			printf("Unable to parse spl header at 0x%x: %d\n", offset, err);
+			continue;
+		}
+
+		err = spi_flash_read(flash, offset, spl_image.size,
+			     (void *)spl_image.load_addr);
+		if (err < 0)
+			continue;
+
+		if (spl_image.dcrc_length) {
+			/* check data crc */
+			ulong dcrc = crc32_wd(0, (unsigned char *)spl_image.dcrc_data,
+					      spl_image.dcrc_length, CHUNKSZ_CRC32);
+			if (dcrc != spl_image.dcrc) {
+				printf("SPL: Image data CRC check failed!\n");
+				continue;
+			}
+		}
+
+		return offset;
+	}
+
+	// fallback
+	printf("Falling back to 0x%x\n", CONFIG_SYS_SPI_U_BOOT_OFFS);
+	return CONFIG_SYS_SPI_U_BOOT_OFFS;
+}
+#endif
 
 void board_boot_order(u32 *spl_boot_list)
 {
