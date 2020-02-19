@@ -44,3 +44,7 @@
 &gpio2 {
 	u-boot,dm-pre-reloc;
 };
+
+&wdog1 {
+	u-boot,dm-pre-reloc;
+};
