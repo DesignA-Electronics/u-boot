@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <search.h>
 #include <env_internal.h>
-#include <cpu.h>
+#include <asm/arch-imx/cpu.h>
 
 #define ACTIVESET_FLASH_LEN (0x10000)
 
