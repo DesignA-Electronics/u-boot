@@ -304,7 +304,7 @@ unsigned long spl_spi_get_uboot_offs(struct spi_flash *flash)
 
 	/* Scan through at 64k offsets looking for a u-boot header */
 	for (uint32_t offset = CONFIG_SYS_SPI_U_BOOT_OFFS; offset < 832 * 1024; offset = (offset + 64 * 1024) & ~(64 * 1024 - 1)) {
-		printf("Checking for SPL at 0x%x\n", offset);
+		printf("Checking for U-Boot at 0x%x\n", offset);
 		//struct spl_load_info load;
 		int err;
 		struct spl_image_info spl_image;
