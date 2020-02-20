@@ -24,7 +24,6 @@
 #include <fsl_esdhc_imx.h>
 #include <netdev.h>
 #include <bootcount.h>
-#include <watchdog.h>
 #include <spi_flash.h>
 #include <u-boot/crc.h>
 #include "common.h"
@@ -278,9 +277,6 @@ void board_init_f(ulong dummy)
 	/* Clear the BSS. */
 	memset(__bss_start, '\0', __bss_end - __bss_start);
 
-	/* Initialize and reset WDT in SPL */
-// 	hw_watchdog_init();
-// 	WATCHDOG_RESET();
 #ifdef CONFIG_SPL_SPI_BOOT
 	fsl_spi_spl_load_image(CONFIG_ENV_OFFSET, CONFIG_ENV_SIZE,
 			       (uchar *)SPL_ENV_ADDR);
