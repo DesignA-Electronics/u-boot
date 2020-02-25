@@ -8,18 +8,12 @@
 #include <env_internal.h>
 #include <asm/arch-imx/cpu.h>
 
-#define ACTIVESET_FLASH_LEN (0x10000)
-
 static u32 activeset_env_addrs[] = {
 	0xD0000,
 	0xE0000,
 };
 
-struct hsearch_data activeset_htab;
-static struct spi_flash *activeset_flash;
-
-// spi_flash_free(activeset_flash);
-// activeset_flash = NULL;
+static struct spi_flash *activeset_flash = NULL;
 
 static int init_flash(void)
 {
@@ -43,7 +37,7 @@ static void print_set_env(void)
 	char *res = NULL;
 	int len;
 
-	len = hexport_r(&activeset_htab, '\n', 0, &res, 0, 0, NULL);
+	len = hexport_r(&env_htab, '\n', 0, &res, 0, 0, NULL);
 	if (len > 0) {
 		puts(res);
 		free(res);
@@ -59,9 +53,13 @@ static int load_set_env(int idx)
 	if (init_flash() < 0)
 		return -1;
 
-	buf = (char *)malloc(ACTIVESET_FLASH_LEN);
+	buf = (char *)malloc(CONFIG_ENV_SIZE);
+	if (!buf) {
+		printf("error: unable to allocate %d bytes\n", CONFIG_ENV_SIZE);
+		return -1;
+	}
 
-	ret = spi_flash_read(activeset_flash, activeset_env_addrs[idx], ACTIVESET_FLASH_LEN, buf);
+	ret = spi_flash_read(activeset_flash, activeset_env_addrs[idx], CONFIG_ENV_SIZE, buf);
 	if (ret < 0) {
 		printf("error: set environment spi flash read failed\n");
 		ret = -1;
@@ -92,13 +90,13 @@ static int save_set_env(int idx)
 	if (ret < 0)
 		return ret;
 
-	ret = spi_flash_erase(activeset_flash, activeset_env_addrs[idx], ACTIVESET_FLASH_LEN);
+	ret = spi_flash_erase(activeset_flash, activeset_env_addrs[idx], CONFIG_ENV_SIZE);
 	if (ret < 0) {
 		printf("error: set environment export spi flash erase failed\n");
 		return ret;
 	}
 
-	ret = spi_flash_write(activeset_flash, activeset_env_addrs[idx], ACTIVESET_FLASH_LEN, (uchar *)&env_new);
+	ret = spi_flash_write(activeset_flash, activeset_env_addrs[idx], CONFIG_ENV_SIZE, (uchar *)&env_new);
 	if (ret < 0) {
 		printf("error: set environment export spi flash write failed\n");
 		return ret;
@@ -114,20 +112,18 @@ static int get_activeset_idx(void)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(activeset_env_addrs); i++) {
-
 		ret = load_set_env(i);
 		if (ret < 0)
 			return -1;
 
 		e.key = "activeset";
 		e.data = NULL;
-		hsearch_r(e, ENV_FIND, &ep, &activeset_htab, 0);
+		hsearch_r(e, ENV_FIND, &ep, &env_htab, 0);
 		if (ep == NULL)
 			return -1;
 
 		if (strcmp(ep->data, "1") == 0)
 			break;
-
 	}
 
 	if (i >= ARRAY_SIZE(activeset_env_addrs))
@@ -165,7 +161,7 @@ static int update_set_active_state(int idx, int active)
 
 	e.key	= "activeset";
 	e.data	= value;
-	hsearch_r(e, ENV_ENTER, &ep, &activeset_htab, 0);
+	hsearch_r(e, ENV_ENTER, &ep, &env_htab, 0);
 	if (!ep)
 		return -1;
 
