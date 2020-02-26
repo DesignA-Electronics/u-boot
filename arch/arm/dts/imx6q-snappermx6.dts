@@ -25,6 +25,11 @@
 		device_type = "memory";
 		reg = <0x10000000 0x40000000>;
 	};
+
+	wdt-reboot {
+		compatible = "wdt-reboot";
+		wdt = <&wdog1>;
+	};
 };
 
 &ecspi1 {
