@@ -242,6 +242,26 @@ static void clear_ldo_ramp(void)
 	writel(reg, &anatop->ana_misc2);
 }
 
+u32 get_ldo_voltage(enum ldo_reg ldo)
+{
+	struct anatop_regs *anatop = (struct anatop_regs *)ANATOP_BASE_ADDR;
+	u32 val, reg = readl(&anatop->reg_core);
+	switch (ldo) {
+	case LDO_SOC:
+		val = (reg >> 18) & 0x1f;
+		break;
+	case LDO_PU:
+		val = (reg >> 9) & 0x1f;
+		break;
+	case LDO_ARM:
+		val = reg & 0x1f;
+		break;
+	default:
+		val = 0;
+	}
+	return (val * 25) + 700;
+}
+
 /*
  * Set the PMU_REG_CORE register
  *

@@ -8,6 +8,7 @@
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/mx6-pins.h>
 #include <asm/arch/clock.h>
+#include <asm/arch/sys_proto.h>
 #include <linux/errno.h>
 #include <asm/gpio.h>
 #include <asm/mach-imx/iomux-v3.h>
@@ -114,6 +115,19 @@ int board_early_init_f(void)
 #ifdef CONFIG_MXC_SPI
 	setup_spi();
 #endif
+
+	return 0;
+}
+
+int power_init_board(void)
+{
+	set_ldo_voltage(LDO_ARM, 1250);	/* Set VDDARM to 1.25V */
+	set_ldo_voltage(LDO_SOC, 1250);	/* Set VDDSOC to 1.25V */
+
+	printf("LDO:   SOC=%dmV PU=%dmV ARM=%dmV\n",
+		get_ldo_voltage(LDO_SOC),
+		get_ldo_voltage(LDO_PU),
+		get_ldo_voltage(LDO_ARM));
 
 	return 0;
 }

@@ -26,6 +26,7 @@ enum ldo_reg {
 	LDO_PU,
 };
 
+u32 get_ldo_voltage(enum ldo_reg ldo);
 int set_ldo_voltage(enum ldo_reg ldo, u32 mv);
 
 /**
