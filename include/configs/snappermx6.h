@@ -14,12 +14,9 @@
 /* Size of malloc() pool */
 #define CONFIG_SYS_MALLOC_LEN		(8 * SZ_1M)
 
-/* Ethernet */
-#define IMX_FEC_BASE			ENET_BASE_ADDR
-#define CONFIG_FEC_XCV_TYPE		MII100
-#define CONFIG_FEC_FIXED_SPEED			100 /* No autoneg, fix Gb */
-#define CONFIG_ETHPRIME			"FEC"
-#define CONFIG_FEC_MXC_PHYADDR		0x00
+/* TFTP */
+#define CONFIG_TFTP_PORT
+#define CONFIG_TFTP_TSIZE
 
 /* Physical Memory Map */
 #define PHYS_SDRAM			MMDC0_ARB_BASE_ADDR

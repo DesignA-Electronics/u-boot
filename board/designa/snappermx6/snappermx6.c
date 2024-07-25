@@ -7,6 +7,7 @@
 #include <asm/io.h>
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/mx6-pins.h>
+#include <asm/sections.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
 #include <linux/errno.h>
@@ -15,11 +16,11 @@
 #include <fsl_esdhc_imx.h>
 #include <miiphy.h>
 #include <netdev.h>
+#include <i2c.h>
 
 #include "common.h"
 
 DECLARE_GLOBAL_DATA_PTR;
-
 
 void board_debug_uart_init(void)
 {
@@ -39,60 +40,75 @@ static iomux_v3_cfg_t const uart5_pads[] = {
 	MX6_PAD_GPIO_9__GPIO1_IO09	  | MUX_PAD_CTRL(NO_PAD_CTRL),
 };
 
+static int salmon_version_read(void)
+{
+	int retval = 0;
+	// We need to do this using a low-level read as this is used prior to the device
+	// tree being initialised, so the dm_ functions will not work
+	// We're on GPIO bank 2, pins 9 & 10
+
+	uint32_t gpio_state = readl(GPIO2_BASE_ADDR);
+
+	if (gpio_state & (1 << 10))
+		retval |= 1;
+	if (gpio_state & (1 << 9))
+		retval |= 2;
+
+	// Convert from the pull-up states to more useful version numbers
+	// Mainboard rev2 uses in-CPU pulls up, so we get all 0x3
+	// Mainbaord rev3 uses a pull-down on VERSION0, so we get 0x2
+	// Future mainboards not yet defined
+	if (retval == 0x3) {
+		return 2;
+	} else if (retval == 0x2) {
+		return 3;
+	} else {
+		printf("WARNING: Unknown mainboard strapping state 0x%x\n", retval);
+		return 0;
+	}
+}
+
 #ifdef CONFIG_FEC_MXC
-static iomux_v3_cfg_t const enet_pads[] = {
-	MX6_PAD_ENET_MDC__ENET_MDC              | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_MDIO__ENET_MDIO            | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_REF_CLK__ENET_TX_CLK    	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_TX_EN__ENET_TX_EN    	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_TXD0__ENET_TX_DATA0	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_TXD1__ENET_TX_DATA1   	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_KEY_ROW2__ENET_TX_DATA2		| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_KEY_ROW0__ENET_TX_DATA3		| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_GPIO_18__ENET_RX_CLK		| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_CRS_DV__ENET_RX_EN    	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_RXD0__ENET_RX_DATA0	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_RXD1__ENET_RX_DATA1	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_KEY_COL2__ENET_RX_DATA2		| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_KEY_COL0__ENET_RX_DATA3		| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET_RX_ER__ENET_RX_ER    	| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_KEY_ROW1__ENET_COL		| MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_KEY_COL3__ENET_CRS		| MUX_PAD_CTRL(ENET_PAD_CTRL),
-
-	/* PHY reset */
-	MX6_PAD_KEY_COL1__GPIO4_IO08		| MUX_PAD_CTRL(NO_PAD_CTRL),
-};
-
-#ifdef CONFIG_MXC_SPI
-static iomux_v3_cfg_t const ecspi1_pads[] = {
-	MX6_PAD_EIM_EB2__GPIO2_IO30 | MUX_PAD_CTRL(SPI_PAD_CTRL),
-	MX6_PAD_EIM_D18__ECSPI1_MOSI | MUX_PAD_CTRL(SPI_PAD_CTRL),
-	MX6_PAD_EIM_D17__ECSPI1_MISO | MUX_PAD_CTRL(SPI_PAD_CTRL),
-	MX6_PAD_EIM_D16__ECSPI1_SCLK | MUX_PAD_CTRL(SPI_PAD_CTRL),
-};
-
-int board_spi_cs_gpio(unsigned bus, unsigned cs)
+static int setup_fec_clock(void)
 {
-	return (bus == 0 && cs == 0) ? (IMX_GPIO_NR(2, 30)) : -1;
+	struct iomuxc *iomuxc_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+
+	/* set gpr1[21] to select anatop clock */
+	setbits_le32(&iomuxc_regs->gpr[1], IOMUXC_GPR1_ENET_CLK_SEL_MASK);
+	iomuxc_set_rgmii_io_voltage(DDR_SEL_1P5V_IO);
+	enable_fec_anatop_clock(0, ENET_125MHZ);
+	enable_enet_clk(1);
+	return 0;
 }
 
-static void setup_spi(void)
-{
-	SETUP_IOMUX_PADS(ecspi1_pads);
-}
-#endif
-
-static void setup_iomux_enet(void)
+static void salmon_enet_init(void)
 {
 	int reset_gpio = IMX_GPIO_NR(4, 8);
-	SETUP_IOMUX_PADS(enet_pads);
+	int version = salmon_version_read();
+	int reset_active = 0;
 
-	/* Reset the 88e6061 PHY on the Salmon carrier board */
+	// Mainboard rev2 & mainboard rev3 invert the ethernet reset
+	if (version == 2) {
+		reset_active = 0;
+	} else if (version == 3) {
+		setup_fec_clock();
+
+		reset_active = 1;
+	} else {
+		puts("Invalid mainboard - not setting up ethernet\n");
+		return;
+	}
+
+	/* Reset the ethernet PHY on the Salmon carrier board */
 	gpio_request(reset_gpio, "PHY_RESET");
+	gpio_direction_output(reset_gpio, reset_active);
+	mdelay(5);
+	gpio_set_value(reset_gpio, !reset_active);
 
-	gpio_direction_output(reset_gpio, 0);
-	udelay(500);
-	gpio_set_value(reset_gpio, 1);
+	if (version == 3) {
+		mdelay(200); // Give the chip time to come out of reset
+		ksz9896_init();
+	}
 }
 #endif
 
@@ -103,21 +119,50 @@ static void setup_iomux_uart(void)
 	gpio_direction_output(IMX_GPIO_NR(1, 9), 1);
 }
 
-int board_eth_init(bd_t *bis)
-{
-	setup_iomux_enet();
-	return cpu_eth_init(bis);
-}
-
 int board_early_init_f(void)
 {
 	setup_iomux_uart();
-#ifdef CONFIG_MXC_SPI
-	setup_spi();
-#endif
 
 	return 0;
 }
+
+#ifndef CONFIG_SPL_BUILD
+void *board_fdt_blob_setup(void)
+{
+	// FDT image is concatenated to U-Boot
+	void *fdt_blob = (ulong *)&_end;
+	const char *eth0_path = "/soc/aips-bus@2100000/ethernet@2188000";
+	const char *fixed_path = "/soc/aips-bus@2100000/ethernet@2188000/fixed-link";
+	int version = salmon_version_read();
+	int fixed_speed = 0;
+
+	const char *pinctrl_group = NULL;;
+	const char *phy_mode = NULL;
+	if (version == 3) {
+		pinctrl_group = "/soc/aips-bus@2000000/iomuxc@20e0000/enet_rev3grp";
+		phy_mode = "rgmii";
+		fixed_speed = 1000;
+	} else if (version == 2) {
+		pinctrl_group = "/soc/aips-bus@2000000/iomuxc@20e0000/enet_rev2grp";
+		phy_mode = "mii";
+		fixed_speed = 100;
+	}
+ 	do_fixup_by_path_string(fdt_blob, eth0_path, "status", "okay");
+	if (phy_mode) {
+ 		do_fixup_by_path_string(fdt_blob, eth0_path, "phy-mode", phy_mode);
+	}
+	if (pinctrl_group) {
+		int group_off = fdt_path_offset(fdt_blob, pinctrl_group);
+		uint32_t group_phandle = fdt_get_phandle(fdt_blob, group_off);
+		do_fixup_by_path_u32(fdt_blob, eth0_path, "pinctrl-0", group_phandle, false);
+	}
+	if (fixed_speed) {
+		do_fixup_by_path_u32(fdt_blob, fixed_path, "speed", fixed_speed, false);
+	}
+
+	return fdt_blob;
+}
+#endif
 
 int power_init_board(void)
 {
@@ -129,20 +174,27 @@ int power_init_board(void)
 		get_ldo_voltage(LDO_PU),
 		get_ldo_voltage(LDO_ARM));
 
+	salmon_enet_init();
+
 	return 0;
 }
 
 int board_init(void)
 {
-	/* address of boot parameters */
-	gd->bd->bi_boot_params = PHYS_SDRAM + 0x100;
-
 	return 0;
 }
 
 int checkboard(void)
 {
 	puts("Board: SnapperMX6\n");
+	printf("Mainboard version: %d\n", salmon_version_read());
 
+	return 0;
+}
+
+int ft_board_setup(void *blob, bd_t *bd)
+{
+	printf("snapper mx6 ft_board_setup\n");
+	// TODO: Adjust FDT based on which revision we are?
 	return 0;
 }
