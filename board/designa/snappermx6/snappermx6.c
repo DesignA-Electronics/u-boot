@@ -126,11 +126,9 @@ int board_early_init_f(void)
 	return 0;
 }
 
-#ifndef CONFIG_SPL_BUILD
-void *board_fdt_blob_setup(void)
+#ifdef CONFIG_OF_BOARD_FIXUP
+int board_fix_fdt(void *fdt_blob)
 {
-	// FDT image is concatenated to U-Boot
-	void *fdt_blob = (ulong *)&_end;
 	const char *eth0_path = "/soc/aips-bus@2100000/ethernet@2188000";
 	const char *fixed_path = "/soc/aips-bus@2100000/ethernet@2188000/fixed-link";
 	int version = salmon_version_read();
@@ -160,7 +158,7 @@ void *board_fdt_blob_setup(void)
 		do_fixup_by_path_u32(fdt_blob, fixed_path, "speed", fixed_speed, false);
 	}
 
-	return fdt_blob;
+	return 0;
 }
 #endif
 
