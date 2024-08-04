@@ -136,7 +136,7 @@ static int ksz9896_probe(struct udevice *dev)
 
 	id = ksz9896_read32(dev, 0, 0);
 	if (id != 0x00989600) {
-		dev_err(dev, "invalid id: %08x", id);
+		dev_err(dev, "invalid id: %08x\n", id);
 		return 1;
 	}
 
@@ -150,14 +150,14 @@ static int ksz9896_probe(struct udevice *dev)
     		xmii_ctrl_1 = 0x18;
 			dm_i2c_write(dev, 0x6301, &xmii_ctrl_1, 1);
 		} else {
-			dev_err(dev, "unsupported phy mode: %s", str);
+			dev_err(dev, "unsupported phy mode: %s\n", str);
 		}
 	}
 	if (!ofnode_read_u32(dev->node, "micrel,led-mode", &raw_mode)) {
 		if (raw_mode == 1)
 			led_mode = KSZ9896_MMD_LED_MODE_LED_MODE_SINGLE | KSZ9896_MMD_LED_MODE_RESERVED_DEFAULT;
 		else {
-			dev_err(dev, "unsupported led mode: %d", raw_mode);
+			dev_err(dev, "unsupported led mode: %d\n", raw_mode);
 		}
 	}
 
