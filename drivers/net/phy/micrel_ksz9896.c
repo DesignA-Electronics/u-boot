@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2024 DesignA Electronics Ltd
+ * Micrel KSZ9896 PHY driver
+ *
+ * Copyright 2024 DesignA Electronics
+ * author Andre Renaud
  */
-
 #include <common.h>
-#include <linux/errno.h>
+#include <dm.h>
+#include <errno.h>
+#include <fdtdec.h>
+#include <phy.h>
 #include <i2c.h>
 
 // MMD access
@@ -92,6 +97,7 @@ static int ksz9896_write_mmd(struct udevice *dev, uint8_t port, uint8_t dev_addr
 	return 0;
 }
 
+#if 0
 static int ksz9896_read_mmd(struct udevice *dev, uint8_t port, uint8_t dev_addr, uint16_t reg_addr)
 {
     //Select register operation
@@ -108,25 +114,52 @@ static int ksz9896_read_mmd(struct udevice *dev, uint8_t port, uint8_t dev_addr,
     // Read the content of the MMD register
     return ksz9896_read16(dev, port, KSZ9896_PHY_MMD_DATA);
 }
+#endif
 
-int ksz9896_init(void)
+static uint32_t ksz9896_read_mib(struct udevice *dev, uint8_t port, uint8_t mib_index)
 {
-	struct udevice *dev;
-	uint32_t id = 0;
-	uint8_t xmii_ctrl_1 = 0x18;
-
-	if (i2c_get_chip_for_busnum(0, 0x5f, 2, &dev) < 0)
+	uint8_t ctrl[4] = {0x2, mib_index, 0, 0};
+	if (dm_i2c_write(dev, 0x500 | (port << 12), ctrl, 4)) {
+		printf("cannot write %d 0x%x\n", port, mib_index);
 		return -1;
+	}
+	udelay(1);
+	return ksz9896_read32(dev, port, 0x504);
+}
+
+static int ksz9896_probe(struct udevice *dev)
+{
+    uint32_t id;
+	const char *str;
+	uint16_t led_mode = KSZ9896_MMD_LED_MODE_LED_MODE_TRI_COLOR_DUAL | KSZ9896_MMD_LED_MODE_RESERVED_DEFAULT;
+	uint32_t raw_mode;
 
 	id = ksz9896_read32(dev, 0, 0);
-
 	if (id != 0x00989600) {
-		printf("KSZ9698: invalid ID: %08x\n", id);
+		dev_err(dev, "invalid id: %08x", id);
 		return 1;
 	}
 
+    // TODO: This should be based on whether rx-internal-delay-ps & tx-internal-delay-ps is set for the cpu port
 	// Enable RGMII Ingress Internal Delay (RGMII_ID_ig)
-	dm_i2c_write(dev, 0x6301, &xmii_ctrl_1, 1);
+	str = ofnode_read_string(dev->node, "phy-mode");
+	if (str) {
+    	uint8_t xmii_ctrl_1;
+		int phy_mode = phy_get_interface_by_name(str);
+		if (phy_mode == PHY_INTERFACE_MODE_RGMII_ID) {
+    		xmii_ctrl_1 = 0x18;
+			dm_i2c_write(dev, 0x6301, &xmii_ctrl_1, 1);
+		} else {
+			dev_err(dev, "unsupported phy mode: %s", str);
+		}
+	}
+	if (!ofnode_read_u32(dev->node, "micrel,led-mode", &raw_mode)) {
+		if (raw_mode == 1)
+			led_mode = KSZ9896_MMD_LED_MODE_LED_MODE_SINGLE | KSZ9896_MMD_LED_MODE_RESERVED_DEFAULT;
+		else {
+			dev_err(dev, "unsupported led mode: %d", raw_mode);
+		}
+	}
 
 	// Apply errata as per.
 	// See 'KSZ9896C Silicon Errata and Data Sheet Clarification'
@@ -166,39 +199,52 @@ int ksz9896_init(void)
 		// Select single-color mode (silicon errata workaround 14)
 		// https://microchipsupport.force.com/s/article/Single-LED-mode-in-the-KSZ9897-and-KSZ9893-Ethernet-switch-families
 		// https://ww1.microchip.com/downloads/aemDocuments/documents/UNG/ProductDocuments/Errata/KSZ9896C-Errata-DS80000757.pdf
-		ksz9896_write_mmd(dev, port, KSZ9896_MMD_LED_MODE, KSZ9896_MMD_LED_MODE_LED_MODE_SINGLE | KSZ9896_MMD_LED_MODE_RESERVED_DEFAULT);
+		ksz9896_write_mmd(dev, port, KSZ9896_MMD_LED_MODE, led_mode);
 
 		// This write must be 32-bit because of a separate errata issue
 		ksz9896_write32(dev, port, 0x13C, 0xfa000300);
 	}
 
+	printf("KSz9896 probe complete\n");
+
 	return 0;
 }
 
-static uint32_t ksz9896_read_mib(struct udevice *dev, uint8_t port, uint8_t mib_index)
+static const struct udevice_id ksz9896_phy_ids[] = {
+	{ .compatible = "micrel,ksz9896" },
+	{ }
+};
+
+U_BOOT_DRIVER(phy_ksz9896) = {
+	.name	= "phy-ksz9896",
+	.id	= UCLASS_PHY,
+	.probe	= ksz9896_probe,
+	.of_match = ksz9896_phy_ids,
+	.ops	= NULL, //&ksz9896_phy_ops,
+};
+
+static struct udevice *ksz9896_find(void)
 {
-	uint8_t ctrl[4] = {0x2, mib_index, 0, 0};
-	if (dm_i2c_write(dev, 0x500 | (port << 12), ctrl, 4)) {
-		printf("cannot write %d 0x%x\n", port, mib_index);
-		return -1;
+	struct udevice *dev;
+	uclass_foreach_dev_probe(UCLASS_PHY, dev) {
+		if (dev->driver && strcmp(dev->driver->name, "phy-ksz9896") == 0)
+			return dev;
 	}
-	udelay(1);
-	return ksz9896_read32(dev, port, 0x504);
+	return NULL;
 }
 
 static int do_ksz9896(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
-	struct udevice *dev;
-	if (i2c_get_chip_for_busnum(0, 0x5f, 2, &dev) < 0) {
+	struct udevice *dev = ksz9896_find();
+	if (!dev) {
 		printf("No KSZ9896 detected in I2C bus\n");
 		return 1;
 	}
 
 	if (ksz9896_read32(dev, 0, 0) != 0x00989600) {
-		printf("KSZ9698 chip present, but invalid id\n");
+		dev_err(dev, "KSZ9698 chip present, but invalid id\n");
 		return 1;
 	}
-
 
 	for (int port = 1; port <= 4; port++) {
 		uint16_t status = ksz9896_read16(dev, port, KSZ9896_PHY_BASIC_STATUS);
@@ -239,4 +285,3 @@ U_BOOT_CMD(
 	"Display KSZ9896 PHY info",
 	""
 );
-

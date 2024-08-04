@@ -106,8 +106,10 @@ static void salmon_enet_init(void)
 	gpio_set_value(reset_gpio, !reset_active);
 
 	if (version == 3) {
+		struct udevice *dev;
 		mdelay(200); // Give the chip time to come out of reset
-		ksz9896_init();
+		if (uclass_get_device_by_name(UCLASS_PHY, "switch@5f", &dev))
+			puts("cannot initialise phy\n");
 	}
 }
 #endif

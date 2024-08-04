@@ -7,5 +7,5 @@
 ifdef CONFIG_SPL_BUILD
 obj-y = spl.o
 else
-obj-y := snappermx6.o ksz9896.o
+obj-y := snappermx6.o
 endif
