@@ -85,15 +85,11 @@ static void salmon_enet_init(void)
 {
 	int reset_gpio = IMX_GPIO_NR(4, 8);
 	int version = salmon_version_read();
-	int reset_active = 0;
 
-	// Mainboard rev2 & mainboard rev3 invert the ethernet reset
 	if (version == 2) {
-		reset_active = 0;
+		// Do nothing
 	} else if (version == 3) {
 		setup_fec_clock();
-
-		reset_active = 1;
 	} else {
 		puts("Invalid mainboard - not setting up ethernet\n");
 		return;
@@ -101,9 +97,9 @@ static void salmon_enet_init(void)
 
 	/* Reset the ethernet PHY on the Salmon carrier board */
 	gpio_request(reset_gpio, "PHY_RESET");
-	gpio_direction_output(reset_gpio, reset_active);
+	gpio_direction_output(reset_gpio, 0);
 	mdelay(5);
-	gpio_set_value(reset_gpio, !reset_active);
+	gpio_set_value(reset_gpio, 1);
 
 	if (version == 3) {
 		struct udevice *dev;
