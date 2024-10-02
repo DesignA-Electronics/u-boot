@@ -180,17 +180,19 @@ int board_init(void)
 	return 0;
 }
 
+int board_late_init(void)
+{
+	char buf[64];
+	sprintf(buf, "salmon-mx6-%d", salmon_version_read());
+	env_set("fit_config", buf);
+
+	return 0;
+}
+
 int checkboard(void)
 {
 	puts("Board: SnapperMX6\n");
 	printf("Mainboard version: %d\n", salmon_version_read());
 
-	return 0;
-}
-
-int ft_board_setup(void *blob, bd_t *bd)
-{
-	printf("snapper mx6 ft_board_setup\n");
-	// TODO: Adjust FDT based on which revision we are?
 	return 0;
 }
