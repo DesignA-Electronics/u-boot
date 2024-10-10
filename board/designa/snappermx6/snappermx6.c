@@ -132,16 +132,19 @@ int board_fix_fdt(void *fdt_blob)
 	int version = salmon_version_read();
 	int fixed_speed = 0;
 
-	const char *pinctrl_group = NULL;;
+	const char *pinctrl_group = NULL;
 	const char *phy_mode = NULL;
+	const char *compatible = NULL;
 	if (version == 3) {
 		pinctrl_group = "/soc/aips-bus@2000000/iomuxc@20e0000/enet_rev3grp";
 		phy_mode = "rgmii";
 		fixed_speed = 1000;
+		compatible = "designa,salmon-mx6-rev3";
 	} else if (version == 2) {
 		pinctrl_group = "/soc/aips-bus@2000000/iomuxc@20e0000/enet_rev2grp";
 		phy_mode = "mii";
 		fixed_speed = 100;
+		compatible = "designa,salmon-mx6-rev2";
 	}
  	do_fixup_by_path_string(fdt_blob, eth0_path, "status", "okay");
 	if (phy_mode) {
@@ -155,6 +158,7 @@ int board_fix_fdt(void *fdt_blob)
 	if (fixed_speed) {
 		do_fixup_by_path_u32(fdt_blob, fixed_path, "speed", fixed_speed, false);
 	}
+	do_fixup_by_path_string(fdt_blob, "/", "compatible", compatible);
 
 	return 0;
 }
@@ -177,15 +181,6 @@ int power_init_board(void)
 
 int board_init(void)
 {
-	return 0;
-}
-
-int board_late_init(void)
-{
-	char buf[64];
-	sprintf(buf, "salmon-mx6-%d", salmon_version_read());
-	env_set("fit_config", buf);
-
 	return 0;
 }
 
