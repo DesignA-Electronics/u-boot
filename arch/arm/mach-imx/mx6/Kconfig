@@ -511,6 +511,13 @@ config TARGET_SNAPPERMX6
 	bool "snappermx6"
 	select SUPPORT_SPL
 	select MX6Q
+	select DM
+	select DM_GPIO
+	select DM_ETH
+	select DM_SERIAL
+	select DM_I2C
+	select DM_SPI
+	imply CMD_DM
 
 config TARGET_TBS2910
 	bool "TBS2910 Matrix ARM mini PC"

@@ -173,6 +173,8 @@ config PHY_MICREL_KSZ8XXX
 	  (now a part of Microchip). This includes drivers for the KSZ804,
 	  KSZ8031, KSZ8051, KSZ8081, KSZ8895, KSZ886x, and KSZ8721.
 
+config PHY_MICREL_KSZ9896
+	bool "Micrel KSZ9896 I2C attached switch support"
 endif # PHY_MICREL
 
 config PHY_MSCC

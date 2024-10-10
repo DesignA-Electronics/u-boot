@@ -112,6 +112,7 @@ static iomux_v3_cfg_t const uart_console_pads[] = {
 	/* UART5 */
 	MX6_PAD_CSI0_DAT14__UART5_TX_DATA | MUX_PAD_CTRL(UART_PAD_CTRL),
 	MX6_PAD_CSI0_DAT15__UART5_RX_DATA | MUX_PAD_CTRL(UART_PAD_CTRL),
+	MX6_PAD_GPIO_9__GPIO1_IO09	  | MUX_PAD_CTRL(NO_PAD_CTRL),
 };
 
 static void set_iomux_uart_spl(void)

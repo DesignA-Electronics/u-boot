@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: setup tools
       run: sudo apt-get update && sudo apt-get -y install gcc-arm-linux-gnueabihf device-tree-compiler bison flex
     - name: config
@@ -17,7 +17,7 @@ jobs:
       run: make -j boot.img CROSS_COMPILE=arm-linux-gnueabihf-
     - name: save output
       run: mkdir -p release && cp -a u-boot-with-spl.imx u-boot boot.img release/
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: Binaries
         path: release
