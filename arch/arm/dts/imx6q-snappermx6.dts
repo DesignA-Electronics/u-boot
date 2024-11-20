@@ -15,7 +15,8 @@
 
 / {
 	model = "SnapperMX6 i.MX6 Quad Board";
-	compatible = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; // Leave this long enough to be overwritten during boot
+	// Leave this long enough to be overwritten during boot
+	compatible = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 
 	chosen {
 		console = &uart5;

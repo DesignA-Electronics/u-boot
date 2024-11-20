@@ -135,16 +135,20 @@ int board_fix_fdt(void *fdt_blob)
 	const char *pinctrl_group = NULL;
 	const char *phy_mode = NULL;
 	const char *compatible = NULL;
+	int compatible_len = 0;
 	if (version == 3) {
 		pinctrl_group = "/soc/aips-bus@2000000/iomuxc@20e0000/enet_rev3grp";
 		phy_mode = "rgmii";
 		fixed_speed = 1000;
 		compatible = "designa,salmon-mx6-rev3";
+		compatible_len = strlen(compatible) + 1;
 	} else if (version == 2) {
 		pinctrl_group = "/soc/aips-bus@2000000/iomuxc@20e0000/enet_rev2grp";
 		phy_mode = "mii";
 		fixed_speed = 100;
-		compatible = "designa,salmon-mx6-rev2";
+		// Rev2 mainboards should remain compatible with older device trees before we specified the revision
+		compatible = "designa,salmon-mx6-rev2\0fsl,imx6q-snappermx6\0";
+		compatible_len = sizeof("designa,salmon-mx6-rev2\0fsl,imx6q-snappermx6\0") + 1; // Since we have embedded nuls, we cannot use strlen
 	}
  	do_fixup_by_path_string(fdt_blob, eth0_path, "status", "okay");
 	if (phy_mode) {
@@ -158,7 +162,7 @@ int board_fix_fdt(void *fdt_blob)
 	if (fixed_speed) {
 		do_fixup_by_path_u32(fdt_blob, fixed_path, "speed", fixed_speed, false);
 	}
-	do_fixup_by_path_string(fdt_blob, "/", "compatible", compatible);
+	do_fixup_by_path(fdt_blob, "/", "compatible", compatible, compatible_len, 1);
 
 	return 0;
 }
