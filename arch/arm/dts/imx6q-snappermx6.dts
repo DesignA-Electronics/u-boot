@@ -45,37 +45,6 @@
 		compatible = "jedec,spi-nor";
 		spi-max-frequency = <40000000>;
 		reg = <0>;
-
-		partition@0 {
-			label = "SPL (spi)";
-			reg = <0x0 0x20000>;
-			read-only;
-		};
-		partition@1 {
-			label = "u-boot (spi)";
-			reg = <0x20000 0x100000>;
-			read-only;
-		};
-		partition@2 {
-			label = "uboot-env (spi)";
-			reg = <0x120000 0x10000>;
-		};
-		partition@3 {
-			label = "uboot-envr (spi)";
-			reg = <0x130000 0x10000>;
-		};
-		partition@4 {
-			label = "linux-recovery (spi)";
-			reg = <0x140000 0x800000>;
-		};
-		partition@5 {
-			label = "swupdate-fitImg (spi)";
-			reg = <0x940000 0x400000>;
-		};
-		partition@6 {
-			label = "swupdate-initramfs (spi)";
-			reg = <0xD40000 0x800000>;
-		};
 	};
 };
 
