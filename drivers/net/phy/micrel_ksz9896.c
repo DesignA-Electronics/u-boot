@@ -205,7 +205,7 @@ static int ksz9896_probe(struct udevice *dev)
 		ksz9896_write32(dev, port, 0x13C, 0xfa000300);
 	}
 
-	printf("KSz9896 probe complete\n");
+	printf("KSZ9896 probe complete\n");
 
 	return 0;
 }
