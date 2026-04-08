@@ -80,18 +80,18 @@ static const struct mx6dq_iomux_grp_regs mx6_grp_ioregs = {
 
 /* 4x128Mx16.cfg */
 static const struct mx6_mmdc_calibration mx6_4x256mx16_mmdc_calib = {
-	.p0_mpwldectrl0 = 0x001D001D,
-	.p0_mpwldectrl1 = 0x002E0028,
-	.p1_mpwldectrl0 = 0x000E001D,
-	.p1_mpwldectrl1 = 0x0004001D,
-	.p0_mpdgctrl0 = 0x43480360,
-	.p0_mpdgctrl1 = 0x033C0334,
-	.p1_mpdgctrl0 = 0x43340344,
-	.p1_mpdgctrl1 = 0x03340304,
-	.p0_mprddlctl = 0x4A3C4044,
-	.p1_mprddlctl = 0x3A3A3248,
-	.p0_mpwrdlctl = 0x4444483C,
-	.p1_mpwrdlctl = 0x463C4C3E,
+	.p0_mpwldectrl0 = 0x002D0028,
+	.p0_mpwldectrl1 = 0x0032002D,
+	.p1_mpwldectrl0 = 0x00210036,
+	.p1_mpwldectrl1 = 0x0019002E,
+	.p0_mpdgctrl0 = 0x03180334,
+	.p0_mpdgctrl1 = 0x0310030C,
+	.p1_mpdgctrl0 = 0x03240334,
+	.p1_mpdgctrl1 = 0x031C0260,
+	.p0_mprddlctl = 0x422E3236,
+	.p1_mprddlctl = 0x3A343246,
+	.p0_mpwrdlctl = 0x32303836,
+	.p1_mpwrdlctl = 0x3C304436,
 };
 
 /* MT41K128M16JT-125 (2Gb density) */
