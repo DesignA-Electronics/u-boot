@@ -81,33 +81,40 @@ static const struct mx6dq_iomux_grp_regs mx6_grp_ioregs = {
 /*
  * 4x128Mx16.cfg
  *
- * Captured with the NXP DDR stress-test tool at 528MHz. Only used as the
- * fallback when DDRCAL fails - a successful calibration overwrites all of them.
+ * Per-lane median of fourteen boards at 528MHz, read back from U-Boot's own
+ * DDRCAL pass (spl_dram_print_cal()). Only used as the fallback when DDRCAL
+ * fails - a successful calibration overwrites all of them.
  *
- * The DQS gating values are on the tool's convention: it leaves MPDGCTRL
- * reflecting the gate window midpoint (HW_DG_LOW + HW_DG_UP)/2, whereas
- * modify_dg_result() in arch/arm/mach-imx/mx6/ddr.c programs (HW_DG_UP - 0xc0)
- * per AN4467 s12.3 step 9 - roughly 80 steps earlier. To put the fallback on
- * the same convention the runtime actually uses, re-capture these from
- * spl_dram_print_cal() across several good boards and take the per-lane median.
+ * These are on the runtime's own convention. modify_dg_result() in
+ * arch/arm/mach-imx/mx6/ddr.c programs DQS gating as (HW_DG_UP - 0xc0) per
+ * AN4467 s12.3 step 9, whereas the NXP stress-test tool leaves MPDGCTRL at the
+ * gate window midpoint (HW_DG_LOW + HW_DG_UP)/2 - about 86 steps higher. Do NOT
+ * re-sync these from imximage.cfg, which is still on the tool's convention.
  *
- * Capture at the frequency the board runs at. Gating scales with the DDR clock:
- * a set captured on the 396MHz branch reads ~100 steps low here, which is most
- * of a coarse step.
+ * Gating also scales with the DDR clock, so re-capture if the MMDC frequency
+ * changes: the same measurement reads ~100 steps lower on the 396MHz branch.
+ *
+ * Write levelling is the exception: across 14 boards it splits into two clusters
+ * ~26 steps apart, uniformly on all eight lanes. The split does not track build
+ * date or serial, so it looks like a parallel second source rather than a
+ * changeover. A median would just land in whichever cluster is better
+ * represented in the sample (currently 12 low against 3 high), so these four
+ * registers use the midpoint between the two cluster means instead - worst case
+ * ~13 steps either way rather than ~26.
  */
 static const struct mx6_mmdc_calibration mx6_4x256mx16_mmdc_calib = {
-	.p0_mpwldectrl0 = 0x002D0028,
-	.p0_mpwldectrl1 = 0x0032002D,
-	.p1_mpwldectrl0 = 0x00210036,
-	.p1_mpwldectrl1 = 0x0019002E,
-	.p0_mpdgctrl0 = 0x4349035C,
-	.p0_mpdgctrl1 = 0x0348033D,
-	.p1_mpdgctrl0 = 0x43550362,
-	.p1_mpdgctrl1 = 0x03520316,
-	.p0_mprddlctl = 0x41393940,
-	.p1_mprddlctl = 0x3F3A3C47,
-	.p0_mpwrdlctl = 0x413A423A,
-	.p1_mpwrdlctl = 0x4042483E,
+	.p0_mpwldectrl0 = 0x00230020,
+	.p0_mpwldectrl1 = 0x002E0028,
+	.p1_mpwldectrl0 = 0x001C002B,
+	.p1_mpwldectrl1 = 0x00140029,
+	.p0_mpdgctrl0 = 0x026A027B,
+	.p0_mpdgctrl1 = 0x0265025C,
+	.p1_mpdgctrl0 = 0x0267027C,
+	.p1_mpdgctrl1 = 0x02690231,
+	.p0_mprddlctl = 0x44383A3B,
+	.p1_mprddlctl = 0x403B3646,
+	.p0_mpwrdlctl = 0x38414640,
+	.p1_mpwrdlctl = 0x473D493D,
 };
 
 /* MT41K128M16JT-125 (2Gb density) */
