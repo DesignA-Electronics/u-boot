@@ -249,6 +249,33 @@ void board_debug_uart_init(void)
 	spl_gpio_direction_output(IMX_GPIO_NR(1, 9), 1);
 }
 
+/*
+ * Bring VDD_SOC and VDD_ARM up to their final operating voltages before DDR is
+ * touched.
+ *
+ * The MMDC read/write delay lines and the DQS gating window all scale with
+ * VDD_SOC, so a calibration captured at one voltage is not centred at another.
+ * power_init_board() sets the same two rails, but it only runs from
+ * common/board_r.c - i.e. in full U-Boot, long after SPL has already
+ * calibrated. Left to itself SPL calibrates at the ROM default VDD_SOC of
+ * 1.15V (PMU_REG_CORE reset value 0x00482814) and the board then runs at
+ * 1.25V, with Linux scaling it further over 1.175V-1.275V via
+ * fsl,soc-operating-points. Calibrating ~125mV away from the operating point
+ * decentres every delay line and shows up as intermittent, load-correlated
+ * DDR corruption - including NAND ECC damage, since GPMI DMAs through DDR.
+ *
+ * This also gets VDD_ARM to the 1.25V that the 996MHz operating point
+ * requires: the DCD in imximage.cfg raises the ARM PLL to 996MHz before SPL
+ * starts, so until this runs the core is clocked above its voltage.
+ *
+ * Keep these values identical to power_init_board() in snappermx6.c.
+ */
+static void spl_set_core_voltages(void)
+{
+	set_ldo_voltage(LDO_SOC, 1250);
+	set_ldo_voltage(LDO_ARM, 1250);
+}
+
 void board_init_f(ulong dummy)
 {
 	int ret;
@@ -262,12 +289,24 @@ void board_init_f(ulong dummy)
 	/* setup GP timer */
 	timer_init();
 
+	/*
+	 * Needs the timer for its ramp-up delay, and must happen before
+	 * spl_dram_init() calibrates the DDR PHY.
+	 */
+	spl_set_core_voltages();
+
 	ret = spl_early_init();
 	if (ret)
 		panic("SPL early init failed");
 
 	/* UART clocks enabled and gd valid - init serial console */
 	preloader_console_init();
+
+	/* Confirm the rails DDR is about to be calibrated against */
+	printf("LDO:   SOC=%dmV PU=%dmV ARM=%dmV\n",
+	       get_ldo_voltage(LDO_SOC),
+	       get_ldo_voltage(LDO_PU),
+	       get_ldo_voltage(LDO_ARM));
 
 	if (IS_ENABLED(CONFIG_SPL_SPI_SUPPORT))
 		init_ecspi();
