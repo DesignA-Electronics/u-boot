@@ -81,16 +81,19 @@ static const struct mx6dq_iomux_grp_regs mx6_grp_ioregs = {
 /*
  * 4x128Mx16.cfg
  *
- * Per-lane median of four good boards, read back from U-Boot's own DDRCAL pass
- * (spl_dram_print_cal()). These are only used as the fallback when calibration
- * fails - a successful DDRCAL overwrites all of them.
+ * Captured with the NXP DDR stress-test tool at 528MHz. Only used as the
+ * fallback when DDRCAL fails - a successful calibration overwrites all of them.
  *
- * Do NOT re-sync these from the DQS gating values in imximage.cfg. Those came
- * from the NXP stress-test tool, which leaves MPDGCTRL reflecting the gate
- * window midpoint (HW_DG_LOW + HW_DG_UP)/2. modify_dg_result() in
- * arch/arm/mach-imx/mx6/ddr.c instead programs (HW_DG_UP - 0xc0), per AN4467
- * s12.3 step 9 - roughly 80 delay steps earlier. The two sets are on different
- * conventions and are not interchangeable.
+ * The DQS gating values are on the tool's convention: it leaves MPDGCTRL
+ * reflecting the gate window midpoint (HW_DG_LOW + HW_DG_UP)/2, whereas
+ * modify_dg_result() in arch/arm/mach-imx/mx6/ddr.c programs (HW_DG_UP - 0xc0)
+ * per AN4467 s12.3 step 9 - roughly 80 steps earlier. To put the fallback on
+ * the same convention the runtime actually uses, re-capture these from
+ * spl_dram_print_cal() across several good boards and take the per-lane median.
+ *
+ * Capture at the frequency the board runs at. Gating scales with the DDR clock:
+ * a set captured on the 396MHz branch reads ~100 steps low here, which is most
+ * of a coarse step.
  */
 static const struct mx6_mmdc_calibration mx6_4x256mx16_mmdc_calib = {
 	.p0_mpwldectrl0 = 0x002D0028,
