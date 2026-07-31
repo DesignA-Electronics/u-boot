@@ -78,7 +78,20 @@ static const struct mx6dq_iomux_grp_regs mx6_grp_ioregs = {
 	.grp_b7ds = 0x00000030,
 };
 
-/* 4x128Mx16.cfg */
+/*
+ * 4x128Mx16.cfg
+ *
+ * Per-lane median of four good boards, read back from U-Boot's own DDRCAL pass
+ * (spl_dram_print_cal()). These are only used as the fallback when calibration
+ * fails - a successful DDRCAL overwrites all of them.
+ *
+ * Do NOT re-sync these from the DQS gating values in imximage.cfg. Those came
+ * from the NXP stress-test tool, which leaves MPDGCTRL reflecting the gate
+ * window midpoint (HW_DG_LOW + HW_DG_UP)/2. modify_dg_result() in
+ * arch/arm/mach-imx/mx6/ddr.c instead programs (HW_DG_UP - 0xc0), per AN4467
+ * s12.3 step 9 - roughly 80 delay steps earlier. The two sets are on different
+ * conventions and are not interchangeable.
+ */
 static const struct mx6_mmdc_calibration mx6_4x256mx16_mmdc_calib = {
 	.p0_mpwldectrl0 = 0x002D0028,
 	.p0_mpwldectrl1 = 0x0032002D,
@@ -183,17 +196,28 @@ static void spl_dram_perform_cal(struct mx6_ddr_sysinfo const *sysinfo)
 {
 	int ret;
 
+	/*
+	 * On failure we fall back to mx6_4x256mx16_mmdc_calib, whose DQS gating
+	 * values came from the NXP stress-test tool and use a different gate
+	 * placement to the one mmdc_do_dqs_calibration() produces. That fallback
+	 * is silent, so tag it with a greppable marker and dump the registers we
+	 * ended up with - otherwise a field failure leaves no evidence behind.
+	 * Error codes are bitmasks; see mmdc_do_*_calibration() in
+	 * arch/arm/mach-imx/mx6/ddr.c for the bit meanings.
+	 */
 	/* Perform DDR DRAM calibration */
 	udelay(100);
 	ret = mmdc_do_write_level_calibration(sysinfo);
 	if (ret) {
-		printf("DDR: Write level calibration error [%d]\n", ret);
+		printf("DDR: CALFAIL write level calibration error [0x%x]\n", ret);
+		spl_dram_print_cal(sysinfo);
 		return;
 	}
 
 	ret = mmdc_do_dqs_calibration(sysinfo);
 	if (ret) {
-		printf("DDR: DQS calibration error [%d]\n", ret);
+		printf("DDR: CALFAIL DQS calibration error [0x%x]\n", ret);
+		spl_dram_print_cal(sysinfo);
 		return;
 	}
 
@@ -211,18 +235,24 @@ static void spl_dram_init(void)
 		/* single chip select */
 		.ncs = 1,
 		.cs1_mirror = 0,
-		.rtt_wr = 1 /*DDR3_RTT_60_OHM*/,	/* RTT_Wr = RZQ/4 */
-		.rtt_nom = 2 /*DDR3_RTT_120_OHM*/,	/* RTT_Nom = RZQ/2 */
-		.walat = 1,	/* Write additional latency */
-		.ralat = 5,	/* Read additional latency */
+		/*
+		 * ODT/latency/refresh below are kept in sync with the DCD in
+		 * imximage.cfg. The boot ROM applies the DCD first, but
+		 * mx6_dram_cfg() re-writes every MMDC register afterwards, so
+		 * these values are what the board actually runs with.
+		 */
+		.rtt_wr = 2 /*DDR3_RTT_120_OHM*/,	/* RTT_Wr = RZQ/2, MR2 = 0x0408 */
+		.rtt_nom = 1 /*DDR3_RTT_60_OHM*/,	/* RTT_Nom = RZQ/4, MR1 = 0x0004, MPODTCTRL = 0x00022227 */
+		.walat = 3,	/* Write additional latency (MDMISC = 0x000317C0) */
+		.ralat = 7,	/* Read additional latency (MDMISC = 0x000317C0) */
 		.mif3_mode = 3,	/* Command prediction working mode */
 		.bi_on = 1,	/* Bank interleaving enabled */
 		.sde_to_rst = 0x10,	/* 14 cycles, 200us (JEDEC default) */
 		.rst_to_cke = 0x23,	/* 33 cycles, 500us (JEDEC default) */
 		.pd_fast_exit = 1, /* enable precharge power-down fast exit */
 		.ddr_type = DDR_TYPE_DDR3,
-		.refsel = 1,	/* Refresh cycles at 32KHz */
-		.refr = 7,	/* 8 refresh commands per refresh cycle */
+		.refsel = 0,	/* Refresh cycles at 64KHz (MDREF = 0x00002C00) */
+		.refr = 5,	/* 6 refresh commands per refresh cycle -> ~2.6us tREFI */
 	};
 
 	mx6dq_dram_iocfg(64, &mx6_ddr_ioregs, &mx6_grp_ioregs);
