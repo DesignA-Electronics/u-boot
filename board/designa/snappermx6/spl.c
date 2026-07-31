@@ -165,18 +165,18 @@ static void spl_dram_print_cal(struct mx6_ddr_sysinfo const *sysinfo)
 
 	mmdc_read_calibration(sysinfo, &calibration);
 
-	debug(".p0_mpdgctrl0\t= 0x%08X\n", calibration.p0_mpdgctrl0);
-	debug(".p0_mpdgctrl1\t= 0x%08X\n", calibration.p0_mpdgctrl1);
-	debug(".p0_mprddlctl\t= 0x%08X\n", calibration.p0_mprddlctl);
-	debug(".p0_mpwrdlctl\t= 0x%08X\n", calibration.p0_mpwrdlctl);
-	debug(".p0_mpwldectrl0\t= 0x%08X\n", calibration.p0_mpwldectrl0);
-	debug(".p0_mpwldectrl1\t= 0x%08X\n", calibration.p0_mpwldectrl1);
-	debug(".p1_mpdgctrl0\t= 0x%08X\n", calibration.p1_mpdgctrl0);
-	debug(".p1_mpdgctrl1\t= 0x%08X\n", calibration.p1_mpdgctrl1);
-	debug(".p1_mprddlctl\t= 0x%08X\n", calibration.p1_mprddlctl);
-	debug(".p1_mpwrdlctl\t= 0x%08X\n", calibration.p1_mpwrdlctl);
-	debug(".p1_mpwldectrl0\t= 0x%08X\n", calibration.p1_mpwldectrl0);
-	debug(".p1_mpwldectrl1\t= 0x%08X\n", calibration.p1_mpwldectrl1);
+	printf(".p0_mpdgctrl0\t= 0x%08x\n", calibration.p0_mpdgctrl0);
+	printf(".p0_mpdgctrl1\t= 0x%08x\n", calibration.p0_mpdgctrl1);
+	printf(".p0_mprddlctl\t= 0x%08x\n", calibration.p0_mprddlctl);
+	printf(".p0_mpwrdlctl\t= 0x%08x\n", calibration.p0_mpwrdlctl);
+	printf(".p0_mpwldectrl0\t= 0x%08x\n", calibration.p0_mpwldectrl0);
+	printf(".p0_mpwldectrl1\t= 0x%08x\n", calibration.p0_mpwldectrl1);
+	printf(".p1_mpdgctrl0\t= 0x%08x\n", calibration.p1_mpdgctrl0);
+	printf(".p1_mpdgctrl1\t= 0x%08x\n", calibration.p1_mpdgctrl1);
+	printf(".p1_mprddlctl\t= 0x%08x\n", calibration.p1_mprddlctl);
+	printf(".p1_mpwrdlctl\t= 0x%08x\n", calibration.p1_mpwrdlctl);
+	printf(".p1_mpwldectrl0\t= 0x%08x\n", calibration.p1_mpwldectrl0);
+	printf(".p1_mpwldectrl1\t= 0x%08x\n", calibration.p1_mpwldectrl1);
 }
 
 static void spl_dram_perform_cal(struct mx6_ddr_sysinfo const *sysinfo)
