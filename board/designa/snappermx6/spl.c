@@ -178,7 +178,6 @@ static void spl_dram_print_cal(struct mx6_ddr_sysinfo const *sysinfo)
 	printf(".p1_mpwldectrl0\t= 0x%08x\n", calibration.p1_mpwldectrl0);
 	printf(".p1_mpwldectrl1\t= 0x%08x\n", calibration.p1_mpwldectrl1);
 }
-}
 
 static void spl_dram_perform_cal(struct mx6_ddr_sysinfo const *sysinfo)
 {
