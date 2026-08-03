@@ -165,18 +165,19 @@ static void spl_dram_print_cal(struct mx6_ddr_sysinfo const *sysinfo)
 
 	mmdc_read_calibration(sysinfo, &calibration);
 
-	debug(".p0_mpdgctrl0\t= 0x%08X\n", calibration.p0_mpdgctrl0);
-	debug(".p0_mpdgctrl1\t= 0x%08X\n", calibration.p0_mpdgctrl1);
-	debug(".p0_mprddlctl\t= 0x%08X\n", calibration.p0_mprddlctl);
-	debug(".p0_mpwrdlctl\t= 0x%08X\n", calibration.p0_mpwrdlctl);
-	debug(".p0_mpwldectrl0\t= 0x%08X\n", calibration.p0_mpwldectrl0);
-	debug(".p0_mpwldectrl1\t= 0x%08X\n", calibration.p0_mpwldectrl1);
-	debug(".p1_mpdgctrl0\t= 0x%08X\n", calibration.p1_mpdgctrl0);
-	debug(".p1_mpdgctrl1\t= 0x%08X\n", calibration.p1_mpdgctrl1);
-	debug(".p1_mprddlctl\t= 0x%08X\n", calibration.p1_mprddlctl);
-	debug(".p1_mpwrdlctl\t= 0x%08X\n", calibration.p1_mpwrdlctl);
-	debug(".p1_mpwldectrl0\t= 0x%08X\n", calibration.p1_mpwldectrl0);
-	debug(".p1_mpwldectrl1\t= 0x%08X\n", calibration.p1_mpwldectrl1);
+	printf(".p0_mpdgctrl0\t= 0x%08x\n", calibration.p0_mpdgctrl0);
+	printf(".p0_mpdgctrl1\t= 0x%08x\n", calibration.p0_mpdgctrl1);
+	printf(".p0_mprddlctl\t= 0x%08x\n", calibration.p0_mprddlctl);
+	printf(".p0_mpwrdlctl\t= 0x%08x\n", calibration.p0_mpwrdlctl);
+	printf(".p0_mpwldectrl0\t= 0x%08x\n", calibration.p0_mpwldectrl0);
+	printf(".p0_mpwldectrl1\t= 0x%08x\n", calibration.p0_mpwldectrl1);
+	printf(".p1_mpdgctrl0\t= 0x%08x\n", calibration.p1_mpdgctrl0);
+	printf(".p1_mpdgctrl1\t= 0x%08x\n", calibration.p1_mpdgctrl1);
+	printf(".p1_mprddlctl\t= 0x%08x\n", calibration.p1_mprddlctl);
+	printf(".p1_mpwrdlctl\t= 0x%08x\n", calibration.p1_mpwrdlctl);
+	printf(".p1_mpwldectrl0\t= 0x%08x\n", calibration.p1_mpwldectrl0);
+	printf(".p1_mpwldectrl1\t= 0x%08x\n", calibration.p1_mpwldectrl1);
+}
 }
 
 static void spl_dram_perform_cal(struct mx6_ddr_sysinfo const *sysinfo)
@@ -249,6 +250,41 @@ void board_debug_uart_init(void)
 	spl_gpio_direction_output(IMX_GPIO_NR(1, 9), 1);
 }
 
+/*
+ * Bring VDD_SOC and VDD_ARM up to their operating voltages before DDR is
+ * touched.
+ *
+ * The MMDC read/write delay lines and the DQS gating window all scale with
+ * VDD_SOC, so a calibration captured at one voltage is not centred at another.
+ * power_init_board() sets the same two rails, but it only runs from
+ * common/board_r.c - i.e. in full U-Boot, long after SPL has calibrated. Left
+ * alone SPL calibrates at the ROM default VDD_SOC of 1.15V (PMU_REG_CORE reset
+ * value 0x00482814) and the board then runs at 1.25V, with Linux scaling it
+ * over 1.175-1.275V via fsl,soc-operating-points.
+ *
+ * Measured on this design: moving VDD_SOC from 1150mV to 1250mV shifts the
+ * calibrated read centres by ~2.2 taps and the write levelling delays by
+ * ~3.7 taps, and widens the read window by ~3.8 taps (~4%). Calibrating at
+ * 1150mV and running at 1250mV therefore gives away roughly 4% of one-sided
+ * read margin for nothing.
+ *
+ * 1250mV specifically because the benefit saturates there - 1275mV measured
+ * only 0.3 taps wider, inside the run-to-run noise, so there is nothing to be
+ * gained by going higher and it would only add heat.
+ *
+ * This also gets VDD_ARM to the 1.25V that the 996MHz operating point requires:
+ * the DCD in imximage.cfg raises the ARM PLL to 996MHz before SPL starts, so
+ * until this runs the core is clocked above its voltage.
+ *
+ * Keep these values identical to power_init_board() in snappermx6.c, and
+ * re-take mx6_4x256mx16_mmdc_calib if they ever change.
+ */
+static void spl_set_core_voltages(void)
+{
+	set_ldo_voltage(LDO_SOC, 1250);
+	set_ldo_voltage(LDO_ARM, 1250);
+}
+
 void board_init_f(ulong dummy)
 {
 	int ret;
@@ -262,12 +298,24 @@ void board_init_f(ulong dummy)
 	/* setup GP timer */
 	timer_init();
 
+	/*
+	 * Needs the timer for its ramp-up delay, and must happen before
+	 * spl_dram_init() calibrates the DDR PHY.
+	 */
+	spl_set_core_voltages();
+
 	ret = spl_early_init();
 	if (ret)
 		panic("SPL early init failed");
 
 	/* UART clocks enabled and gd valid - init serial console */
 	preloader_console_init();
+
+	/* Confirm the rails the DDR calibration below is referenced to */
+	printf("LDO:   SOC=%dmV PU=%dmV ARM=%dmV\n",
+	       get_ldo_voltage(LDO_SOC),
+	       get_ldo_voltage(LDO_PU),
+	       get_ldo_voltage(LDO_ARM));
 
 	if (IS_ENABLED(CONFIG_SPL_SPI_SUPPORT))
 		init_ecspi();
