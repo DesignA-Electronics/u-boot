@@ -201,6 +201,41 @@ static void spl_dram_perform_cal(struct mx6_ddr_sysinfo const *sysinfo)
 }
 #endif /* CONFIG_MX6_DDRCAL */
 
+/*
+ * Stop the MMDC putting the DRAM into precharge power-down or self-refresh on
+ * its own.
+ *
+ * mx6_ddr3_cfg() unconditionally programs MDPDC PWDT_0/PWDT_1 to 256 idle
+ * cycles and enables ADOPT power saving via MAPSR, so under normal load the
+ * controller enters and leaves power-down continuously. Entry/exit is the most
+ * timing-marginal thing the MMDC does routinely - tXP/tXPDLL plus the DLL
+ * relock - and because it is driven by idle time, any resulting corruption
+ * tracks system load rather than anything a memory test can aim at.
+ *
+ * Note this is invisible to the DDRMARGIN numbers above: the calibration passes
+ * never exercise power-down entry or exit, so a change here will not show up in
+ * the logged read windows either way.
+ *
+ * Both calibration passes disable these and re-enable them on the way out (see
+ * ddr.c:237/240 and ddr.c:518/521), so this cannot be expressed through
+ * mx6_ddr_sysinfo - it has to run after spl_dram_perform_cal().
+ *
+ * Only MMDC_P0 carries the controller registers; P1 is just the second PHY.
+ *
+ * Costs idle power and a little DRAM self-heating. Drop the call to get the
+ * upstream behaviour back.
+ */
+static void spl_dram_disable_power_down(void)
+{
+	struct mmdc_p_regs *mmdc0 = (struct mmdc_p_regs *)MMDC_P0_BASE_ADDR;
+
+	/* MDPDC PWDT_0/PWDT_1 = 0: automatic power-down timer off */
+	clrbits_le32(&mmdc0->mdpdc, 0xff00);
+
+	/* MAPSR PSD = 1: disable automatic power saving / self-refresh entry */
+	setbits_le32(&mmdc0->mapsr, 0x1);
+}
+
 static void spl_dram_init(void)
 {
 	struct mx6_ddr_sysinfo sysinfo = {
@@ -231,6 +266,8 @@ static void spl_dram_init(void)
 #ifdef CONFIG_MX6_DDRCAL
 	spl_dram_perform_cal(&sysinfo);
 #endif
+
+	spl_dram_disable_power_down();
 }
 
 static void init_ecspi(void)
