@@ -40,11 +40,38 @@
 #define KSZ9896_MMD_LED_MODE                                   0x02, 0x00
 #define KSZ9896_MMD_EEE_ADV                                    0x07, 0x3C
 
+// On Salmon rev3 the switch occasionally fails to ACK when cold, so retry I2C writes
+#define KSZ9896_I2C_TRIES 4
+
+static int ksz9896_i2c_write(struct udevice *dev, uint8_t port, uint16_t reg, uint8_t *data, int len)
+{
+	for (int try = 1; try <= KSZ9896_I2C_TRIES; try++) {
+		if (!dm_i2c_write(dev, (port << 12) | reg, data, len)) {
+			if (try > 1)
+				printf("ksz9896: write port %d 0x%x needed %d tries\n", port, reg, try);
+			return 0;
+		}
+	}
+	return -1;
+}
+
+static int ksz9896_i2c_read(struct udevice *dev, uint8_t port, uint16_t reg, uint8_t *data, int len)
+{
+	for (int try = 1; try <= KSZ9896_I2C_TRIES; try++) {
+		if (!dm_i2c_read(dev, (port << 12) | reg, data, len)) {
+			if (try > 1)
+				printf("ksz9896: read port %d 0x%x needed %d tries\n", port, reg, try);
+			return 0;
+		}
+	}
+	return -1;
+}
+
 static int ksz9896_write16(struct udevice *dev, uint8_t port, uint16_t reg, uint16_t val)
 {
 	uint8_t data[2] = {val >> 8, val};
-	if (dm_i2c_write(dev, (port << 12) | reg, data, 2)) {
-		printf("cannot write 0x%x=0x%04x\n", reg, val);
+	if (ksz9896_i2c_write(dev, port, reg, data, 2)) {
+		printf("cannot write port %d 0x%x=0x%04x\n", port, reg, val);
 		return -1;
 	}
 	return 0;
@@ -53,7 +80,7 @@ static int ksz9896_write16(struct udevice *dev, uint8_t port, uint16_t reg, uint
 static int ksz9896_read16(struct udevice *dev, uint8_t port, uint16_t reg)
 {
 	uint16_t data;
-	if (dm_i2c_read(dev, (port << 12) | reg, (uint8_t *)&data, 2)) {
+	if (ksz9896_i2c_read(dev, port, reg, (uint8_t *)&data, 2)) {
 		return -1;
 	}
 	return __be16_to_cpu(data);
@@ -62,8 +89,8 @@ static int ksz9896_read16(struct udevice *dev, uint8_t port, uint16_t reg)
 static int ksz9896_write32(struct udevice *dev, uint8_t port, uint16_t reg, uint32_t val)
 {
 	uint8_t data[4] = {val >> 24, val >> 16, val >> 8, val};
-	if (dm_i2c_write(dev, (port << 12) | reg, data, sizeof(data))) {
-		printf("cannot write 0x%x=0x%04x\n", reg, val);
+	if (ksz9896_i2c_write(dev, port, reg, data, sizeof(data))) {
+		printf("cannot write port %d 0x%x=0x%04x\n", port, reg, val);
 		return -1;
 	}
 	return 0;
@@ -72,7 +99,7 @@ static int ksz9896_write32(struct udevice *dev, uint8_t port, uint16_t reg, uint
 static uint32_t ksz9896_read32(struct udevice *dev, uint8_t port, uint16_t reg)
 {
 	uint32_t val;
-	if (dm_i2c_read(dev, (port << 12) | reg, (uint8_t *)&val, sizeof(val))) {
+	if (ksz9896_i2c_read(dev, port, reg, (uint8_t *)&val, sizeof(val))) {
 		return -1;
 	}
     return __be32_to_cpu(val);
@@ -80,21 +107,30 @@ static uint32_t ksz9896_read32(struct udevice *dev, uint8_t port, uint16_t reg)
 
 static int ksz9896_write_mmd(struct udevice *dev, uint8_t port, uint8_t dev_addr, uint16_t reg_addr, uint16_t data)
 {
-    //Select register operation
-    ksz9896_write16(dev, port, KSZ9896_PHY_MMD_SETUP,
-       KSZ9896_MMDACR_FUNC_ADDR | (dev_addr & KSZ9896_MMDACR_DEVAD));
+	// The four writes only work as a sequence, so if any fails, start the sequence again
+	for (int try = 0; try < KSZ9896_I2C_TRIES; try++) {
+		//Select register operation
+		if (ksz9896_write16(dev, port, KSZ9896_PHY_MMD_SETUP,
+				    KSZ9896_MMDACR_FUNC_ADDR | (dev_addr & KSZ9896_MMDACR_DEVAD)))
+			continue;
 
-    //Write MMD register address
-    ksz9896_write16(dev, port, KSZ9896_PHY_MMD_DATA, reg_addr);
+		//Write MMD register address
+		if (ksz9896_write16(dev, port, KSZ9896_PHY_MMD_DATA, reg_addr))
+			continue;
 
-    //Select data operation
-    ksz9896_write16(dev, port, KSZ9896_PHY_MMD_SETUP,
-       KSZ9896_MMDACR_FUNC_DATA_NO_POST_INC | (dev_addr & KSZ9896_MMDACR_DEVAD));
+		//Select data operation
+		if (ksz9896_write16(dev, port, KSZ9896_PHY_MMD_SETUP,
+				    KSZ9896_MMDACR_FUNC_DATA_NO_POST_INC | (dev_addr & KSZ9896_MMDACR_DEVAD)))
+			continue;
 
-    //Write the content of the MMD register
-    ksz9896_write16(dev, port, KSZ9896_PHY_MMD_DATA, data);
+		//Write the content of the MMD register
+		if (ksz9896_write16(dev, port, KSZ9896_PHY_MMD_DATA, data))
+			continue;
 
-	return 0;
+		return 0;
+	}
+
+	return -1;
 }
 
 #if 0
@@ -119,7 +155,7 @@ static int ksz9896_read_mmd(struct udevice *dev, uint8_t port, uint8_t dev_addr,
 static uint32_t ksz9896_read_mib(struct udevice *dev, uint8_t port, uint8_t mib_index)
 {
 	uint8_t ctrl[4] = {0x2, mib_index, 0, 0};
-	if (dm_i2c_write(dev, 0x500 | (port << 12), ctrl, 4)) {
+	if (ksz9896_i2c_write(dev, port, 0x500, ctrl, 4)) {
 		printf("cannot write %d 0x%x\n", port, mib_index);
 		return -1;
 	}
@@ -148,7 +184,8 @@ static int ksz9896_probe(struct udevice *dev)
 		int phy_mode = phy_get_interface_by_name(str);
 		if (phy_mode == PHY_INTERFACE_MODE_RGMII_ID) {
     		xmii_ctrl_1 = 0x18;
-			dm_i2c_write(dev, 0x6301, &xmii_ctrl_1, 1);
+			if (ksz9896_i2c_write(dev, 6, 0x301, &xmii_ctrl_1, 1))
+				printf("cannot write port 6 0x301=0x%02x\n", xmii_ctrl_1);
 		} else {
 			dev_err(dev, "unsupported phy mode: %s\n", str);
 		}
