@@ -176,6 +176,12 @@ static int ksz9896_probe(struct udevice *dev)
 		return 1;
 	}
 
+	if (ofnode_read_bool(dev->node, "microchip,synclko-disable")) {
+		uint8_t clko = 0;
+		if (ksz9896_i2c_write(dev, 0, 0x103, &clko, 1))
+			printf("cannot write 0x103=0x%02x\n", clko);
+	}
+
     // TODO: This should be based on whether rx-internal-delay-ps & tx-internal-delay-ps is set for the cpu port
 	// Enable RGMII Ingress Internal Delay (RGMII_ID_ig)
 	str = ofnode_read_string(dev->node, "phy-mode");
