@@ -169,11 +169,22 @@ static int ksz9896_probe(struct udevice *dev)
 	const char *str;
 	uint16_t led_mode = KSZ9896_MMD_LED_MODE_LED_MODE_TRI_COLOR_DUAL | KSZ9896_MMD_LED_MODE_RESERVED_DEFAULT;
 	uint32_t raw_mode;
+	uint32_t iba;
 
 	id = ksz9896_read32(dev, 0, 0);
 	if (id != 0x00989600) {
 		dev_err(dev, "invalid id: %08x\n", id);
 		return 1;
+	}
+
+	// In-band management (IBA) can be strapped on, and the errata (module 15) says it disrupts
+	// I2C access, so make sure it's off before anything else
+	iba = ksz9896_read32(dev, 0, 0x104);
+	if (iba == 0xffffffff) {
+		printf("cannot read IBA control 0x104\n");
+	} else if (iba & BIT(31)) {
+		printf("KSZ9896 IBA strapped on, disabling\n");
+		ksz9896_write32(dev, 0, 0x104, iba & ~BIT(31));
 	}
 
 	if (ofnode_read_bool(dev->node, "microchip,synclko-disable")) {

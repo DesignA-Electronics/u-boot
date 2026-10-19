@@ -69,6 +69,17 @@ static int salmon_version_read(void)
 }
 
 #ifdef CONFIG_FEC_MXC
+/*
+ * RGMII_RX_CTL is the KSZ9896's RX_DV6 pin, which straps in-band management (IBA) when the switch
+ * leaves reset. Only the switch's weak internal pull-down sets it to disabled, and an i.MX pull-up
+ * fights it, so pull the pad down before releasing the reset rather than relying on its power-on
+ * setting (the FEC pinctrl is only applied later).
+ */
+static iomux_v3_cfg_t const ksz_strap_pads[] = {
+	MX6_PAD_RGMII_RX_CTL__RGMII_RX_CTL | MUX_PAD_CTRL(PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN |
+							  PAD_CTL_SPEED_MED | PAD_CTL_DSE_40ohm),
+};
+
 static int setup_fec_clock(void)
 {
 	struct iomuxc *iomuxc_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
@@ -94,6 +105,9 @@ static void salmon_enet_init(void)
 		puts("Invalid mainboard - not setting up ethernet\n");
 		return;
 	}
+
+	if (version == 3)
+		imx_iomux_v3_setup_multiple_pads(ksz_strap_pads, ARRAY_SIZE(ksz_strap_pads));
 
 	/* Reset the ethernet PHY on the Salmon carrier board */
 	gpio_request(reset_gpio, "PHY_RESET");
